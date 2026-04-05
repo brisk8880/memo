@@ -3,66 +3,62 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>세무사 장기 암기 매니저</title>
+    <title>세무사 완벽 보존 암기장</title>
     <style>
-        :root { --primary-color: #2e7d32; --accent-color: #e67e22; }
-        body { font-family: 'Pretendard', sans-serif; margin: 0; padding: 15px; background-color: #f8f9fa; -webkit-tap-highlight-color: transparent; }
+        :root { --primary-color: #2e7d32; --accent-color: #e67e22; --backup-color: #455a64; }
+        body { font-family: 'Pretendard', sans-serif; margin: 0; padding: 15px; background-color: #f8f9fa; }
         .header { position: sticky; top: 0; background: white; z-index: 100; padding: 15px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-bottom: 20px; }
-        .status-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-        .data-count { background: var(--accent-color); color: white; padding: 6px 12px; border-radius: 20px; font-size: 0.85em; font-weight: bold; cursor: pointer; border:none; }
+        .status-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 5px; }
+        .btn-group { display: flex; gap: 5px; }
+        .data-count { background: var(--accent-color); color: white; padding: 6px 10px; border-radius: 15px; font-size: 0.75em; font-weight: bold; cursor: pointer; border:none; }
+        .btn-backup { background: var(--backup-color); color: white; padding: 6px 10px; border-radius: 15px; font-size: 0.75em; font-weight: bold; cursor: pointer; border:none; }
         .input-group { display: flex; gap: 8px; }
-        input { flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; outline: none; }
-        .btn-add { padding: 10px 15px; background: var(--primary-color); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        input { flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; }
+        .btn-add { padding: 10px 15px; background: var(--primary-color); color: white; border: none; border-radius: 8px; font-weight: bold; }
         .container { display: flex; flex-direction: column; gap: 15px; padding-bottom: 80px; }
         .round-box { background: white; border-radius: 10px; padding: 15px; border-left: 5px solid var(--primary-color); box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-        .round-title { font-size: 1.1em; font-weight: 800; margin-bottom: 10px; color: #333; }
-        ul { list-style: none; padding: 0; margin: 0; }
-        li { display: flex; flex-direction: column; padding: 12px; margin-bottom: 8px; background: #fff; border: 1px solid #eee; border-radius: 6px; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-        li:active { background: #f1f8e9; }
-        .item-main { display: flex; align-items: center; pointer-events: none; }
-        .checkbox { width: 18px; height: 18px; border: 2px solid #bbb; border-radius: 4px; margin-right: 12px; flex-shrink: 0; }
-        .start-time { font-size: 10px; color: #aaa; margin-left: 30px; margin-top: 4px; pointer-events: none; }
+        .round-title { font-size: 1.1em; font-weight: 800; margin-bottom: 10px; }
+        ul { list-style: none; padding: 0; }
+        li { padding: 12px; margin-bottom: 8px; background: #fff; border: 1px solid #eee; border-radius: 6px; cursor: pointer; }
+        .start-time { font-size: 10px; color: #aaa; margin-top: 4px; }
     </style>
 </head>
 <body>
 
     <div class="header">
         <div class="status-bar">
-            <span style="font-weight: bold; color: var(--primary-color);">세무사 암기노트 v3</span>
-            <button class="data-count" onclick="downloadAndClearCSV()">완료: <span id="itemCount">0</span>줄 (저장)</button>
+            <span style="font-weight: bold; color: var(--primary-color);">암기 매니저 v4</span>
+            <div class="btn-group">
+                <button class="btn-backup" onclick="exportFullData()">전체백업</button>
+                <button class="btn-backup" onclick="importFullData()">복구</button>
+                <button class="data-count" onclick="downloadCompletedCSV()">완료저장</button>
+            </div>
         </div>
         <div class="input-group">
-            <input type="text" id="memoInput" placeholder="내용 입력 후 등록" onkeypress="if(event.key==='Enter') addToFirst()">
+            <input type="text" id="memoInput" placeholder="암기할 내용 입력" onkeypress="if(event.key==='Enter') addToFirst()">
             <button class="btn-add" onclick="addToFirst()">등록</button>
         </div>
     </div>
 
-    <div class="container" id="roundContainer"></div>
+    <div id="roundContainer" class="container"></div>
 
     <script>
-        // 1. 초기 데이터 로드 (페이지 열 때 실행)
         let activeItems = JSON.parse(localStorage.getItem('active_items') || "[]");
         let completedData = JSON.parse(localStorage.getItem('study_data') || "[]");
 
+        // 화면 초기화
         const container = document.getElementById('roundContainer');
         for (let i = 1; i <= 7; i++) {
             container.innerHTML += `<div class="round-box"><div class="round-title">${i}회차분</div><ul id="list-${i}"></ul></div>`;
         }
 
-        // 저장된 활성 항목들 화면에 그리기
         renderItems();
-        updateCounter();
 
         function renderItems() {
-            // 모든 리스트 비우기
             for (let i = 1; i <= 7; i++) document.getElementById(`list-${i}`).innerHTML = '';
-            
             activeItems.forEach((item, index) => {
                 const li = document.createElement('li');
-                li.innerHTML = `
-                    <div class="item-main"><div class="checkbox"></div><span>${item.text}</span></div>
-                    <div class="start-time">시작: ${item.start}</div>
-                `;
+                li.innerHTML = `<div>${item.text}</div><div class="start-time">시작: ${item.start}</div>`;
                 li.onclick = () => moveItem(index);
                 document.getElementById(`list-${item.round}`).appendChild(li);
             });
@@ -71,61 +67,74 @@
         function addToFirst() {
             const input = document.getElementById('memoInput');
             if (!input.value.trim()) return;
-
-            const newItem = {
-                text: input.value,
-                round: 1,
-                start: new Date().toLocaleString()
-            };
-
-            activeItems.push(newItem);
-            saveToStorage();
-            renderItems();
+            activeItems.push({ text: input.value, round: 1, start: new Date().toLocaleString() });
+            saveAndRender();
             input.value = "";
-            input.focus();
         }
 
         function moveItem(index) {
-            const item = activeItems[index];
-            if (item.round < 7) {
-                item.round++;
+            if (activeItems[index].round < 7) {
+                activeItems[index].round++;
             } else {
-                // 7회차 완료 시 완료 목록으로 이동
-                const endTime = new Date().toLocaleString();
-                completedData.push({ content: item.text, start: item.start, end: endTime });
+                completedData.push({ content: activeItems[index].text, start: activeItems[index].start, end: new Date().toLocaleString() });
                 activeItems.splice(index, 1);
             }
-            saveToStorage();
+            saveAndRender();
+        }
+
+        function saveAndRender() {
+            localStorage.setItem('active_items', JSON.stringify(activeItems));
+            localStorage.setItem('study_data', JSON.stringify(completedData));
             renderItems();
         }
 
-        function saveToStorage() {
-            localStorage.setItem('active_items', JSON.stringify(activeItems));
-            localStorage.setItem('study_data', JSON.stringify(completedData));
-            updateCounter();
-        }
-
-        function updateCounter() {
-            document.getElementById('itemCount').textContent = completedData.length;
-        }
-
-        function downloadAndClearCSV() {
-            if (completedData.length === 0) { alert("완료된 데이터가 없습니다."); return; }
-            if (!confirm("완료 목록을 CSV로 저장하고 초기화할까요?")) return;
-
-            let csvContent = "\ufeff내용,최초 입력시간,7회차 완료시간\n";
-            completedData.forEach(item => {
-                csvContent += `"${item.content}","${item.start}","${item.end}"\n`;
-            });
-
-            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        // [신규] 1~7회차 전체 진행상태 백업 (JSON 파일)
+        function exportFullData() {
+            const fullData = {
+                active: activeItems,
+                completed: completedData,
+                backupDate: new Date().toLocaleString()
+            };
+            const blob = new Blob([JSON.stringify(fullData)], { type: 'application/json' });
             const link = document.createElement("a");
-            link.setAttribute("href", URL.createObjectURL(blob));
-            link.setAttribute("download", `세무사_암기완료_${new Date().toLocaleDateString()}.csv`);
+            link.href = URL.createObjectURL(blob);
+            link.download = `세무사_암기_전체백업_${new Date().toLocaleDateString()}.json`;
             link.click();
+            alert("진행 중인 모든 항목이 포함된 백업 파일이 생성되었습니다.");
+        }
 
-            completedData = [];
-            saveToStorage();
+        // [신규] 백업 파일로부터 데이터 복구
+        function importFullData() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            input.onchange = e => {
+                const file = e.target.files[0];
+                const reader = new FileReader();
+                reader.onload = event => {
+                    try {
+                        const imported = JSON.parse(event.target.result);
+                        if (confirm(`백업 파일(${imported.backupDate})로 복구할까요? 현재 데이터는 덮어씌워집니다.`)) {
+                            activeItems = imported.active;
+                            completedData = imported.completed;
+                            saveAndRender();
+                            alert("복구가 완료되었습니다.");
+                        }
+                    } catch (e) { alert("올바른 백업 파일이 아닙니다."); }
+                };
+                reader.readAsText(file);
+            };
+            input.click();
+        }
+
+        function downloadCompletedCSV() {
+            if (completedData.length === 0) return alert("완료 데이터가 없습니다.");
+            let csv = "\ufeff내용,시작,종료\n" + completedData.map(d => `"${d.content}","${d.start}","${d.end}"`).join("\n");
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = `완료데이터_${new Date().toLocaleDateString()}.csv`;
+            link.click();
         }
     </script>
 </body>
