@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>세무사 완벽 보존 암기장</title>
+    <title>세무사 완벽 보존 암기장 (주기 알림형)</title>
     <style>
         :root { --primary-color: #2e7d32; --accent-color: #e67e22; --backup-color: #455a64; --guide-bg: #fff3e0; }
         body { font-family: 'Pretendard', sans-serif; margin: 0; padding: 10px; background-color: #f8f9fa; -webkit-tap-highlight-color: transparent; }
@@ -29,16 +29,17 @@
         .round-box { background: white; border-radius: 10px; padding: 15px; border-left: 5px solid var(--primary-color); box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
         .round-title { font-size: 1.1em; font-weight: 800; margin-bottom: 10px; color: #333; }
         ul { list-style: none; padding: 0; margin: 0; }
-        li { display: flex; flex-direction: column; padding: 12px; margin-bottom: 8px; background: #fff; border: 1px solid #eee; border-radius: 6px; cursor: pointer; }
+        li { display: flex; flex-direction: column; padding: 12px; margin-bottom: 8px; background: #fff; border: 1px solid #eee; border-radius: 6px; cursor: pointer; position: relative; }
         li:active { background: #f1f8e9; }
         .start-time { font-size: 10px; color: #aaa; margin-top: 4px; pointer-events: none; }
+        .wait-msg { font-size: 11px; color: #999; font-style: italic; text-align: center; padding: 10px; border: 1px dashed #ddd; border-radius: 6px; }
     </style>
 </head>
 <body>
 
     <div class="header">
         <div class="status-bar">
-            <span style="font-weight: bold; color: var(--primary-color);">암기 매니저 v4.3</span>
+            <span style="font-weight: bold; color: var(--primary-color);">암기 매니저 v4.5 (주기설정형)</span>
             <div class="btn-group">
                 <button class="btn-backup" onclick="exportFullData()">전체백업</button>
                 <button class="btn-backup" onclick="importFullData()">가져오기</button>
@@ -47,11 +48,8 @@
         </div>
 
         <div class="guide-box">
-            1. PC/휴대폰 사용 전 <b>[복구]</b>로 최신상태 동기화 필수<br>
-            2. 사용 후에는 반드시 <b>[전체백업]</b> 버튼 클릭<br>
-            3. 완료 데이터는 100개 단위로 <b>[저장]</b> 권장<br>
-            4. 모든 파일 보관 경로:<br>
-            <span class="path-text">구글 드라이브\세무사암기</span>
+            ※ <b>회차별 노출 조건:</b> 1회(즉시), 2회(7일), 3회(14일), 4회(30일), 5회(60일), 6회(90일), 7회(180일)<br>
+            ※ 조건을 만족하지 않은 메모는 리스트에 나타나지 않습니다.
         </div>
 
         <div class="input-group">
@@ -74,19 +72,58 @@
         renderItems();
         updateCounter();
 
+        // 날짜 차이 계산 함수 (단위: 일)
+        function getDaysDiff(startDateStr) {
+            const start = new Date(startDateStr);
+            const now = new Date();
+            const diffTime = now - start;
+            return Math.floor(diffTime / (1000 * 60 * 60 * 24));
+        }
+
+        // 회차별 노출 가능 여부 확인
+        function isVisible(round, startDateStr) {
+            const days = getDaysDiff(startDateStr);
+            if (round === 1) return true; // 1회차: 즉시
+            if (round === 2) return days >= 7; // 2회차: 7일
+            if (round === 3) return days >= 14; // 3회차: 14일
+            if (round === 4) return days >= 30; // 4회차: 30일
+            if (round === 5) return days >= 60; // 5회차: 60일
+            if (round === 6) return days >= 90; // 6회차: 90일
+            if (round === 7) return days >= 180; // 7회차: 180일
+            return false;
+        }
+
         function renderItems() {
-            for (let i = 1; i <= 7; i++) document.getElementById(`list-${i}`).innerHTML = '';
+            for (let i = 1; i <= 7; i++) {
+                const listEl = document.getElementById(`list-${i}`);
+                listEl.innerHTML = '';
+            }
+
+            let hasItemsInRound = [false, false, false, false, false, false, false, false];
+
             activeItems.forEach((item, index) => {
-                const li = document.createElement('li');
-                li.innerHTML = `<div>${item.text}</div><div class="start-time">시작: ${item.start}</div>`;
-                li.onclick = () => moveItem(index);
-                document.getElementById(`list-${item.round}`).appendChild(li);
+                if (isVisible(item.round, item.start)) {
+                    const li = document.createElement('li');
+                    li.innerHTML = `<div>${item.text}</div><div class="start-time">최초등록: ${item.start}</div>`;
+                    li.onclick = () => moveItem(index);
+                    document.getElementById(`list-${item.round}`).appendChild(li);
+                    hasItemsInRound[item.round] = true;
+                }
             });
+
+            // 아무것도 노출되지 않을 때의 안내 (선택사항)
+            for (let i = 1; i <= 7; i++) {
+                const listEl = document.getElementById(`list-${i}`);
+                if (listEl.innerHTML === '') {
+                    listEl.innerHTML = '<div class="wait-msg">현재 복습 대상이 없습니다.</div>';
+                }
+            }
         }
 
         function addToFirst() {
             const input = document.getElementById('memoInput');
             if (!input.value.trim()) return;
+            // 중요: 모든 회차 판단의 기준은 '최초 등록일'로 유지됩니다.
             activeItems.push({ text: input.value, round: 1, start: new Date().toLocaleString() });
             saveAndRender();
             input.value = "";
@@ -96,7 +133,11 @@
             if (activeItems[index].round < 7) {
                 activeItems[index].round++;
             } else {
-                completedData.push({ content: activeItems[index].text, start: activeItems[index].start, end: new Date().toLocaleString() });
+                completedData.push({ 
+                    content: activeItems[index].text, 
+                    start: activeItems[index].start, 
+                    end: new Date().toLocaleString() 
+                });
                 activeItems.splice(index, 1);
             }
             saveAndRender();
